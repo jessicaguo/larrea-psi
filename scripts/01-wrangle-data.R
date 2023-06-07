@@ -1,5 +1,7 @@
 library(googledrive)
 library(tidyverse)
+library(janitor)
+library(here)
 
 # Create function for negate %in%
 `%nin%` = Negate(`%in%`)
@@ -27,7 +29,7 @@ csv_files <- all_files %>%
 
 # Download new files to data_raw folder
 map2(.x = csv_files$id, .y = csv_files$name,
-     ~ drive_download(as_id(.x), path = paste0("data_raw/", .y)))
+     ~ drive_download(as_id(.x), path = paste0("data_raw/", .y), overwrite = TRUE))
 
 ###### Append files by shrub/branch #####
 fn <- list.files("data_raw")
@@ -58,8 +60,39 @@ for(i in 1:length(branches)) {
                                               `External Power Supply Current (mA)` = col_double(),
                                               `Diagnostic Comment` = col_character()))) %>%
     list_rbind() %>%
-    mutate(dt = ymd_hms(paste(Date, Time), tz = "America/Phoenix"))
+    mutate(dt = ymd_hms(paste(Date, Time), tz = "America/Phoenix")) %>%
+    clean_names()
   
   write_csv(df, file = paste0("data_appended/psy_", branches[i], ".csv"))
   
 }
+
+
+# Read in data to check
+fn_appended <- list.files("data_appended")
+
+dat_sum <- data.frame(filename = character(),
+                      start = Date(),
+                      end = Date(),
+                      length_non_NA = numeric())
+
+for(i in 1:length(fn_appended)) {
+  dat <- read_csv(here("data_appended", fn_appended[i]))
+  
+  dat_sum[i,1] <- fn_appended[i]
+  dat_sum[i,2] <- min(dat$date, na.rm = TRUE)
+  dat_sum[i,3] <- max(dat$date, na.rm = TRUE)
+  dat_sum[i,4] <- nrow(dat)
+  
+}
+
+dat_sum <- dat_sum %>%
+  mutate(branch = str_extract(filename, "\\d[a-z]"),
+         shrub = str_extract(filename, "\\d"))
+
+# Plot frequency of measurements
+ggplot(dat_sum) +
+  geom_errorbarh(aes(xmin = start, xmax = end,
+                     y = branch,
+                     color = shrub),
+                 height = 0)
