@@ -1,3 +1,4 @@
+library(googlesheets4)
 library(googledrive)
 library(tidyverse)
 library(janitor)
@@ -13,7 +14,20 @@ if(!dir.exists("data_raw")) {
 if(!dir.exists("data_appended")) {
   dir.create("data_appended")
 }
-##### Download csv's from Google Drive #####
+
+##### Download manual data from Google Drive #####
+
+manual <- read_sheet("https://docs.google.com/spreadsheets/d/1gVmWOpvJVHU81S7W8M3cM0stLKn6hsTKvb2_XSMpKMo/edit#gid=247691673",
+                     sheet = "Predawns") %>%
+  mutate(dt = Date + lubridate::hm(Time)) %>%
+  clean_names() 
+
+ggplot(manual) +
+  geom_point(aes(x = dt, y = predawn_m_pa, color = factor(shrub_id)))
+
+write_csv(manual, "data_clean/pressure_chamber.csv")
+
+##### Download psychrometer csv's from Google Drive #####
 
 # Name local local csv's
 fn <- list.files("data_raw")
