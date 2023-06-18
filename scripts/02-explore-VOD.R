@@ -177,7 +177,13 @@ vod_psy %>%
                                          name = expression(paste(Psi["1:30 am"], " (MPa)")))) +
   labs(shape = "method", color = "branch") +
   theme_bw() +
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom") +
+  guides(color = "none")
+
+ggsave("figs/VOD_NDVI_psy.png",
+       height = 3,
+       width = 5,
+       units = "in")
 
 
 ##### Explore linear relationship by period #####
