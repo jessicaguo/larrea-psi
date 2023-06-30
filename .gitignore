@@ -6,3 +6,9 @@
 # Data folders
 data_appended/
 data_raw/
+data_clean/
+data_neon/
+data_vod/
+
+# Figures
+figs/
