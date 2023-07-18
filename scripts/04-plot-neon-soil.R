@@ -10,6 +10,7 @@ if(!dir.exists("data_neon")) {
 }
 
 # Download and stack 2023 soil moisture for SRER
+# Only run once, or update when new data is available
 zipsByProduct(dpID = "DP1.00094.001", 
                        site = c("SRER"),
                        startdate = "2023-01",
@@ -80,4 +81,78 @@ swc30 %>%
              color = horizontalPosition)) +
   geom_point()
 
-# Average all of them for 501 - 503, except for 005.503
+# Take mean of plots 1/2 and 3/4, for top 4 layers
+# Keep only if 2 or more points included in mean
+# plots 1/2 have missing 06 data, but more infiltration measured at 56
+# plots 3/4 have more complete 06-26 data, but no measurements at 56
+
+swc_12 <- swc30 %>%
+  filter(VSWCFinalQF == 0,
+         verticalPosition %in% c(501, 502, 503, 504),
+         horizontalPosition %in% c("001", "002")) %>%
+  filter(!is.na(VSWCMean)) %>%
+  mutate(depth = case_when(verticalPosition == 501 ~ 6,
+                           verticalPosition == 502 ~ 16,
+                           verticalPosition == 503 ~ 26,
+                           verticalPosition == 504 ~ 56)) %>%
+  group_by(depth,
+           startDateTime) %>%
+  summarize(swc_mean = mean(VSWCMean),
+            swc_n = n()) %>%
+  filter(swc_n > 1) %>%
+  pivot_wider(names_from = depth, 
+              values_from = swc_mean,
+              names_prefix = "p12_")
+
+swc_34 <- swc30 %>%
+  filter(VSWCFinalQF == 0,
+         verticalPosition %in% c(501, 502, 503),
+         horizontalPosition %in% c("003", "004")) %>%
+  filter(!is.na(VSWCMean)) %>%
+  mutate(depth = case_when(verticalPosition == 501 ~ 6,
+                           verticalPosition == 502 ~ 16,
+                           verticalPosition == 503 ~ 26)) %>%
+  group_by(depth,
+           startDateTime) %>%
+  summarize(swc_mean = mean(VSWCMean),
+            swc_n = n()) %>%
+  filter(swc_n > 1) %>%
+  pivot_wider(names_from = depth, 
+              values_from = swc_mean,
+              names_prefix = "p34_")
+  
+# Check plots
+swc_12 %>%  
+  ggplot() +
+  geom_point(aes(x = startDateTime,
+                 y = p12_6,
+                 color = "06 cm")) +
+  geom_point(aes(x = startDateTime,
+                 y = p12_16, 
+                 color = "16 cm")) +
+  geom_point(aes(x = startDateTime,
+                 y = p12_26, 
+                 color = "26 cm")) +
+  geom_point(aes(x = startDateTime,
+                 y = p12_56, 
+                 color = "56 cm"))
+
+  
+  
+swc_34 %>%  
+  ggplot() +
+  geom_point(aes(x = startDateTime,
+                 y = p34_6,
+                 color = "06 cm")) +
+  geom_point(aes(x = startDateTime,
+                 y = p34_16, 
+                 color = "16 cm")) +
+  geom_point(aes(x = startDateTime,
+                 y = p34_26, 
+                 color = "26 cm")) 
+
+
+# combine and output
+swc_all <- full_join(select(swc_12, -swc_n), select(swc_34, -swc_n), by = join_by(startDateTime))
+
+write_csv(swc_all, "data_clean/neon_swc30.csv")
