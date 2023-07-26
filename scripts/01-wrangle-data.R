@@ -22,8 +22,10 @@ manual <- read_sheet("https://docs.google.com/spreadsheets/d/1gVmWOpvJVHU81S7W8M
   mutate(dt = Date + lubridate::hm(Time)) %>%
   clean_names() 
 
-ggplot(manual) +
-  geom_point(aes(x = dt, y = predawn_m_pa, color = factor(shrub_id)))
+ggplot(manual, 
+       aes(x = dt, y = predawn_m_pa, color = factor(shrub_id))) +
+  geom_point() +
+  geom_line()
 
 write_csv(manual, "data_clean/pressure_chamber.csv")
 
@@ -52,31 +54,128 @@ branches <- map(fn, ~str_extract(.x, "\\d{1}[a-z]{1}")) %>%
   unique()
 
 for(i in 1:length(branches)) {
-  files <- paste0("data_raw/", grep(branches[i], fn, value = TRUE))
-  df <- map(files, ~read_csv(.x, 
-                             skip = 15, 
-                             locale=locale(encoding="latin1", tz = "America/Phoenix"),
-                             col_types = cols(Date = col_date("%d/%m/%Y"),
-                                              Time = col_time(format = "%H:%M:%S"),
-                                              `Chamber Temperature (°C)` = col_double(),
-                                              `dT (µV)` = col_double(),
-                                              `Wet Bulb Depression (µV)` = col_double(),
-                                              `Corrected Water Potential (MPa)` = col_double(),
-                                              Intercept = col_double(),
-                                              Slope = col_double(),
-                                              EDBO = col_double(),
-                                              `Correction for dT (MPa)` = col_double(),
-                                              `Correction Factor` = col_double(),
-                                              `Internal Battery Voltage (V)` = col_double(),
-                                              `Internal Battery Temperature (°C)` = col_double(),
-                                              `External Power Supply Present` = col_character(),
-                                              `External Power Supply Voltage (V)` = col_double(),
-                                              `External Power Supply Current (mA)` = col_double(),
-                                              `Diagnostic Comment` = col_character()))) %>%
-    list_rbind() %>%
-    mutate(dt = ymd_hms(paste(Date, Time), tz = "America/Phoenix")) %>%
-    clean_names()
   
+  # Grep the correct file names
+  files <- paste0("data_raw/", grep(branches[i], fn, value = TRUE))
+  
+  # Slow method: allows for checking whether header is present or not (see previous versions for map method)
+  comb <- data.frame()
+  for(j in 1:length(files)) {
+    
+    # Testing for which kind of import
+    skip_read <- read_csv(files[j], 
+                    skip = 15, n_max = 3,
+                    locale=locale(encoding="latin1", tz = "America/Phoenix"))
+    
+    ncol_read <- read_csv(files[j], n_max = 3,
+                          locale=locale(encoding="latin1", tz = "America/Phoenix"),
+                          col_names = FALSE) %>%
+      select(where(function(x) any(!is.na(x))))
+
+    if(colnames(skip_read)[1] == "Date" & ncol(skip_read) == 16) {
+      # If Correction Factor not present
+      df_temp <- read_csv(files[j], 
+                          skip = 15, 
+                          locale=locale(encoding="latin1", tz = "America/Phoenix"),
+                          col_types = cols(Date = col_character(), # col_date("%d/%m/%Y")
+                                           Time = col_time(format = "%H:%M:%S"),
+                                           `Chamber Temperature (°C)` = col_double(),
+                                           `dT (µV)` = col_double(),
+                                           `Wet Bulb Depression (µV)` = col_double(),
+                                           `Corrected Water Potential (MPa)` = col_double(),
+                                           Intercept = col_double(),
+                                           Slope = col_double(),
+                                           EDBO = col_double(),
+                                           `Correction for dT (MPa)` = col_double(),
+                                           `Internal Battery Voltage (V)` = col_double(),
+                                           `Internal Battery Temperature (°C)` = col_double(),
+                                           `External Power Supply Present` = col_character(),
+                                           `External Power Supply Voltage (V)` = col_double(),
+                                           `External Power Supply Current (mA)` = col_double(),
+                                           `Diagnostic Comment` = col_character())) %>%
+        mutate(Date = lubridate::dmy(Date, tz = "America/Phoenix"),
+               dt = ymd_hms(paste(Date, Time), tz = "America/Phoenix")) %>%
+        select(-`Diagnostic Comment`)
+    } else if (colnames(skip_read)[1] == "Date" & ncol(skip_read) == 17) {
+      # If Correction Factor is present
+      df_temp <- read_csv(files[j], 
+                          skip = 15, 
+                          locale=locale(encoding="latin1", tz = "America/Phoenix"),
+                          col_types = cols(Date = col_character(), # col_date("%d/%m/%Y")
+                                           Time = col_time(format = "%H:%M:%S"),
+                                           `Chamber Temperature (°C)` = col_double(),
+                                           `dT (µV)` = col_double(),
+                                           `Wet Bulb Depression (µV)` = col_double(),
+                                           `Corrected Water Potential (MPa)` = col_double(),
+                                           Intercept = col_double(),
+                                           Slope = col_double(),
+                                           EDBO = col_double(),
+                                           `Correction for dT (MPa)` = col_double(),
+                                           `Correction Factor` = col_double(),
+                                           `Internal Battery Voltage (V)` = col_double(),
+                                           `Internal Battery Temperature (°C)` = col_double(),
+                                           `External Power Supply Present` = col_character(),
+                                           `External Power Supply Voltage (V)` = col_double(),
+                                           `External Power Supply Current (mA)` = col_double(),
+                                           `Diagnostic Comment` = col_character())) %>%
+        mutate(Date = lubridate::dmy(Date, tz = "America/Phoenix"),
+               dt = ymd_hms(paste(Date, Time), tz = "America/Phoenix")) %>%
+        select(-`Diagnostic Comment`, -`Correction Factor`)
+    } else if (colnames(skip_read)[1] != "Date" & ncol(ncol_read) == 16) {
+      df_temp <- read_csv(files[j], 
+                          locale=locale(encoding="latin1", tz = "America/Phoenix"),
+                          col_names = FALSE,
+                          col_types = "ctdddddddddddcdd") %>%
+        rename(Date = 1,
+               Time = 2,
+               `Chamber Temperature (°C)` = 3,
+               `dT (µV)` = 4,
+               `Wet Bulb Depression (µV)` = 5,
+               `Corrected Water Potential (MPa)` = 6,
+               Intercept = 7,
+               Slope = 8,
+               EDBO = 9,
+               `Correction for dT (MPa)` = 10,
+               `Correction Factor` = 11,
+               `Internal Battery Voltage (V)` = 12,
+               `Internal Battery Temperature (°C)` = 13,
+               `External Power Supply Present` = 14,
+               `External Power Supply Voltage (V)` = 15,
+               `External Power Supply Current (mA)` = 16) %>%
+        mutate(Date = lubridate::dmy(Date, tz = "America/Phoenix"),
+               dt = ymd_hms(paste(Date, Time), tz = "America/Phoenix")) %>%
+        select(-`Correction Factor`)
+    } else if (colnames(skip_read)[1] != "Date" & ncol(ncol_read) == 15) {
+      df_temp <- read_csv(files[j], 
+                          locale=locale(encoding="latin1", tz = "America/Phoenix"),
+                          col_names = FALSE,
+                          col_types = "ctddddddddddcdd") %>%
+        rename(Date = 1,
+               Time = 2,
+               `Chamber Temperature (°C)` = 3,
+               `dT (µV)` = 4,
+               `Wet Bulb Depression (µV)` = 5,
+               `Corrected Water Potential (MPa)` = 6,
+               Intercept = 7,
+               Slope = 8,
+               EDBO = 9,
+               `Correction for dT (MPa)` = 10,
+               `Internal Battery Voltage (V)` = 11,
+               `Internal Battery Temperature (°C)` = 12,
+               `External Power Supply Present` = 13,
+               `External Power Supply Voltage (V)` = 14,
+               `External Power Supply Current (mA)` = 15) %>%
+        mutate(Date = lubridate::dmy(Date, tz = "America/Phoenix"),
+               dt = ymd_hms(paste(Date, Time), tz = "America/Phoenix"))
+    }
+    
+    # Append
+    comb <- bind_rows(comb, df_temp) 
+      
+  }
+  
+  df <- comb %>%
+    janitor::clean_names(replace = janitor:::mu_to_u)
   write_csv(df, file = paste0("data_appended/psy_", branches[i], ".csv"))
   
 }
