@@ -54,11 +54,16 @@ vpd30_tower %>%
 
 
 # Read in and join with swc data
+env_2023 <- data.frame(dt = seq(as.POSIXct("2023-01-01 00:00:00"),
+                                as.POSIXct("2023-08-01 23:30:00"),
+                                by = "30 mins"))
 swc_all <- read_csv("data_clean/neon_swc30.csv")
 
-env_all <- vpd30_tower %>%
-  select(-siteID, -verticalPosition) %>%
-  full_join(swc_all, by = join_by(startDateTime))
+
+env_all <- env_2023 %>%
+  left_join(select(vpd30_tower, -siteID, -verticalPosition),
+            by = join_by(dt == startDateTime)) %>%
+  left_join(swc_all, by = join_by(dt = startDateTime))
 
 # Write out
-write.csv(env_all, "data_clean/neon_vpd30.csv")
+write_csv(env_all, "data_clean/neon_vpd30.csv")
