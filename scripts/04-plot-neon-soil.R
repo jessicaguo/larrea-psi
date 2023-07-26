@@ -156,3 +156,36 @@ swc_34 %>%
 swc_all <- full_join(select(swc_12, -swc_n), select(swc_34, -swc_n), by = join_by(startDateTime))
 
 write_csv(swc_all, "data_clean/neon_swc30.csv")
+
+# Average to daily values
+
+swc30 <- read_csv("data_clean/neon_swc30.csv",
+                  locale = locale(tz = "America/Phoenix")) %>%
+  mutate(date = as.Date(startDateTime, tz = "America/Phoenix"))
+
+# attr(swc30$startDateTime, "tzone")
+# attr(swc30$date, "tzone")
+# 
+# swc30 %>%
+#   filter(date >= as.Date("2023-05-01", tz = "America/Phoenix"),
+#          date <= as.Date("2023-05-03", tz = "America/Phoenix")) %>%
+#   ggplot(aes(x = startDateTime, y = p12_16)) +
+#   geom_point()
+
+# Summarize to dily means, sd, and n
+# But only keep data from days with 10 or more observations
+
+swc_daily <- swc30 %>%
+  pivot_longer(cols = c(-1, -9), 
+               names_to = "depth",
+               values_to = "swc") %>%
+  group_by(date, depth) %>%
+  summarize(m = mean(swc, na.rm = TRUE),
+            sd = sd(swc, na.rm = TRUE),
+            n = sum(!is.na(swc))) %>%
+  filter(n >= 10) %>%
+  pivot_wider(names_from = depth,
+              names_sep = "_",
+              values_from = c(m, sd, n))
+
+write_csv(swc_daily, "data_clean/neon_swcdaily.csv")
