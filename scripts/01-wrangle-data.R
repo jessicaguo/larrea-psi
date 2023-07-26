@@ -93,7 +93,7 @@ for(i in 1:length(branches)) {
                                            `External Power Supply Voltage (V)` = col_double(),
                                            `External Power Supply Current (mA)` = col_double(),
                                            `Diagnostic Comment` = col_character())) %>%
-        mutate(Date = lubridate::dmy(Date, tz = "America/Phoenix"),
+        mutate(Date = as.Date(Date, format = "%d/%m/%Y", tz = "America/Phoenix"),
                dt = ymd_hms(paste(Date, Time), tz = "America/Phoenix")) %>%
         select(-`Diagnostic Comment`)
     } else if (colnames(skip_read)[1] == "Date" & ncol(skip_read) == 17) {
@@ -118,7 +118,7 @@ for(i in 1:length(branches)) {
                                            `External Power Supply Voltage (V)` = col_double(),
                                            `External Power Supply Current (mA)` = col_double(),
                                            `Diagnostic Comment` = col_character())) %>%
-        mutate(Date = lubridate::dmy(Date, tz = "America/Phoenix"),
+        mutate(Date = as.Date(Date, format = "%d/%m/%Y", tz = "America/Phoenix"),
                dt = ymd_hms(paste(Date, Time), tz = "America/Phoenix")) %>%
         select(-`Diagnostic Comment`, -`Correction Factor`)
     } else if (colnames(skip_read)[1] != "Date" & ncol(ncol_read) == 16) {
@@ -142,7 +142,7 @@ for(i in 1:length(branches)) {
                `External Power Supply Present` = 14,
                `External Power Supply Voltage (V)` = 15,
                `External Power Supply Current (mA)` = 16) %>%
-        mutate(Date = lubridate::dmy(Date, tz = "America/Phoenix"),
+        mutate(Date = as.Date(Date, format = "%d/%m/%Y", tz = "America/Phoenix"),
                dt = ymd_hms(paste(Date, Time), tz = "America/Phoenix")) %>%
         select(-`Correction Factor`)
     } else if (colnames(skip_read)[1] != "Date" & ncol(ncol_read) == 15) {
@@ -165,7 +165,7 @@ for(i in 1:length(branches)) {
                `External Power Supply Present` = 13,
                `External Power Supply Voltage (V)` = 14,
                `External Power Supply Current (mA)` = 15) %>%
-        mutate(Date = lubridate::dmy(Date, tz = "America/Phoenix"),
+        mutate(Date = as.Date(Date, format = "%d/%m/%Y", tz = "America/Phoenix"),
                dt = ymd_hms(paste(Date, Time), tz = "America/Phoenix"))
     }
     
