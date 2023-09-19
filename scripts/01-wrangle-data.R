@@ -209,3 +209,15 @@ ggplot(dat_sum) +
                      y = branch,
                      color = shrub),
                  height = 0)
+
+
+# Wrangle manual PV curve data
+pv <- read_sheet("https://docs.google.com/spreadsheets/d/1oXb-js0mXpXzwDzQSmtrYZELwQvRPbcRv18v8q9qAcs/edit#gid=0",
+                 sheet = "20230908") %>%
+  mutate(shrub_id = factor(shrub_id))
+
+ggplot(pv) +
+  geom_point(aes(x = water_content, y = WP,
+                 color = shrub_id))
+
+write_csv(pv, file = paste0("data_clean/pv.csv"))
