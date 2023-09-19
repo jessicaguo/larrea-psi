@@ -274,8 +274,8 @@ vod_psy %>%
   theme(legend.position = "bottom")
 
 ggsave("figs/VOD_NDVI_psy.png",
-       height = 3,
-       width = 5,
+       height = 4,
+       width = 8,
        units = "in")
 
 
@@ -332,14 +332,17 @@ vod_all <- vod_psy %>%
 vod_all %>%
   ggplot(aes(x = date)) +
   geom_point(aes(y = vod130am, color = "LPDR 30 day median")) +
-  geom_point(aes(y = am_vod_ndvi/10, color = "LPDR 30 day median / NDVI")) +
+  geom_point(aes(y = am_vod_ndvi/10, color = "LPDR 30 day median / NDVI / 10")) +
   geom_point(aes(y = X_VOD_DESCENDING_smooth_31*2,
-                 color = "LPRM X band 31 day mean")) +
+                 color = "LPRM X band 31 day mean *2")) +
   geom_point(aes(y = X_VOD_DESCENDING_smooth_15*2,
-                 color = "LPRM X band 15 day mean")) +
+                 color = "LPRM X band 15 day mean *2")) +
   geom_point(aes(y = X_VOD_DESCENDING_smooth_11*2,
-                 color = "LPRM X band 11 day mean")) +
-  theme_bw()
+                 color = "LPRM X band 11 day mean *2")) +
+  theme_bw(base_size = 14) +
+  scale_y_continuous("VOD indices") +
+  theme(legend.position = c(0.75 , 0.65),
+        panel.grid = element_blank())
 
 # Compare LPDR/NDVI with 11 day mean LPRM X band
 
@@ -353,22 +356,27 @@ vod_all %>%
                     ymax = (WP_m + WP_sd)+13,
                     color = "1:30 AM psychrometer mean +/- sd"),
                 width = 0,
-                alpha = 0.25) +
-  geom_point(aes(y = WP_m + 13, color = "1:30 AM psychrometer mean +/- sd")) +
+                alpha = 0.25,
+                color = "black") +
+  geom_point(aes(y = WP_m + 13, color = "1:30 AM psychrometer mean +/- sd"),
+             color = "black") +
   geom_errorbar(data = manual_sum, aes(x = date,
                                        ymin = (predawn_mean - predawn_sd)+13,
                                        ymax = (predawn_mean + predawn_sd)+13,
                                        color = "Predawn chamber mean +/- sd"),
-                width = 0) +
+                width = 0,
+                color = "forestgreen") +
   geom_point(data = manual_sum, aes(x = date, 
                                     y = predawn_mean+13,
                                     color = "Predawn chamber mean +/- sd"),
-             size = 2) +
+             size = 2,
+             color = "forestgreen") +
   scale_y_continuous("VOD", 
                      sec.axis = sec_axis(~.-13,
                                          name = expression(paste(Psi["1:30 am"], " (MPa)")))) +
-  labs(shape = "method", color = "branch") +
-  theme_bw() 
+  labs(shape = "method", color = "product") +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "bottom")
 
 # Quick calculation of R2
 
@@ -382,18 +390,55 @@ cor(sub_df$WP_m, sub_df$X_VOD_DESCENDING_smooth_11, use = "complete.obs") # 0.85
 cor(sub_df$WP_m, sub_df$am_vod_ndvi, use = "complete.obs") # 0.515
 cor(sub_df$WP_m, sub_df$vod130am, use = "complete.obs") # 0.327
 
-ggplot(vod_all) +
-  geom_point(aes(x = X_VOD_DESCENDING_smooth_11,
-                 y = WP_m,
-                 color = date))
+sub_long <- sub_df %>%
+  select(-predawn_mean, -vod130am) %>%
+  pivot_longer(3:4, 
+               names_to = "index",
+               values_to = "VOD") %>%
+  filter(!is.na(VOD)) %>%
+  mutate(lab = case_when(index == "am_vod_ndvi" ~ "LPDR VOD/NDVI",
+                         index == "X_VOD_DESCENDING_smooth_11" ~ "LPRM X band 11 day"),
+         date = as.Date(date, tz = "America/Phoenix"))
 
-ggplot(vod_all) +
-  geom_point(aes(x = am_vod_ndvi,
-                 y = WP_m,
-                 color = date))
+sub_long %>%
+  ggplot(aes(x = VOD,
+             y = WP_m))+
+  geom_point(aes(color = date)) +
+  facet_wrap(~lab, scales = "free_x") +
+  viridis::scale_colour_viridis(option = "mako", 
+                                trans = "date",
+                                direction = -1) +
+  theme_bw(base_size = 12) +
+  scale_y_continuous(expression(paste(Psi["1:30 am"], " (MPa)")))
+
+#### Read in manual pv and compare to LPRM
+
+sub_lprm <- sub_long %>%
+  filter(index == "X_VOD_DESCENDING_smooth_11")
 
 
-85#### Add on-site SWC to comparison ####
+pv <- read_csv("data_clean/pv.csv") %>%
+  select(date, WP, water_content) %>%
+  rename(WP_m = WP,
+         VOD = water_content) %>%
+  mutate(index = "PV curve",
+         lab = "Water content (manual)",
+         date = as.Date(date, tz = "America/Phoenix"))
+
+sub_pv <- bind_rows(sub_lprm, pv)
+
+sub_pv %>%
+  ggplot(aes(y = WP_m, 
+             x = VOD))+
+  geom_point(aes(color = date)) +
+  facet_wrap(~lab, scales = "free_x") +
+  viridis::scale_colour_viridis(option = "mako", 
+                                trans = "date",
+                                direction = -1) +
+  theme_bw(base_size = 12) +
+  scale_y_continuous(expression(paste(Psi["1:30 am"], " (MPa)")))
+
+#### Add on-site SWC to comparison ####
 # read in half-hourly
 swc30 <- read_csv("data_clean/neon_swc30.csv",
                   locale = locale(tz = "America/Phoenix")) %>%
