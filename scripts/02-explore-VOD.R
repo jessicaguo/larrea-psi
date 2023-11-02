@@ -8,7 +8,8 @@ library(cowplot)
 library(slider)
 
 # Read manual data and summarize
-manual <- read_csv("data_clean/pressure_chamber.csv")
+manual <- read_csv("data_clean/pressure_chamber.csv") %>%
+  mutate(month = lubridate::month(dt))
 
 manual_sum <- manual %>%
   group_by(date) %>%
@@ -97,10 +98,12 @@ green %>%
 # Read in branches a and b from shrub 4
 branch_6a <- read_csv("data_appended/psy_6a.csv",
                       locale=locale(encoding="latin1", tz = "America/Phoenix")) %>%
-  rename(WP = corrected_water_potential_m_pa)
+  rename(WP = corrected_water_potential_m_pa) %>%
+  mutate(month = lubridate::month(dt))
 branch_6c <- read_csv("data_appended/psy_6c.csv",
                       locale=locale(encoding="latin1", tz = "America/Phoenix")) %>%
-  rename(WP = corrected_water_potential_m_pa)
+  rename(WP = corrected_water_potential_m_pa) %>%
+  mutate(month = lubridate::month(dt))
 branch_4a <- read_csv("data_appended/psy_4a.csv",
                       locale=locale(encoding="latin1", tz = "America/Phoenix")) %>%
   rename(WP = corrected_water_potential_m_pa)
@@ -147,6 +150,28 @@ psy_mid <- ggplot() +
 
 plot_grid(psy_top, psy_mid, ncol = 1)
 
+# July only
+psy_july <- ggplot() +
+  geom_point(data = filter(branch_6c,
+                           date >= as.Date("2023-07-17"),
+                           date <= as.Date ("2023-08-15")), 
+             aes(x = dt, y = WP, 
+                 color = "6c",
+                 shape = "psychrometer")) +
+  geom_point(data = filter(manual, shrub_id == 6, 
+                           date >= as.Date("2023-07-17"),
+                           date <= as.Date ("2023-08-15")), 
+             aes(x = dt, y = predawn_m_pa, 
+                 color = "6",
+                 shape = "manual"),
+             size = 2) +
+  scale_y_continuous(expression(paste(Psi, " (MPa)"))) +
+  scale_color_brewer(palette = "Paired", direction = -1) +
+  guides(color = "none",
+         shape = "none") +
+  theme_bw()
+
+psy_july
 
 ##### Read in all PSY timeseries, extract 1:30 am, and calculate mean #####
 
@@ -437,6 +462,29 @@ sub_pv %>%
                                 direction = -1) +
   theme_bw(base_size = 12) +
   scale_y_continuous(expression(paste(Psi["1:30 am"], " (MPa)")))
+
+
+# from late October 2023, full rehydrated curves on 5 samples
+# need to rerun with dried mass of leaves
+pv_comb <- read_csv("../larrea-pv/data_clean/pv_comb.csv") %>%
+  select(P.MPa, RWC) %>%
+  rename(VOD = RWC) %>%
+  mutate(WP_m = -P.MPa,
+         index = "PV curve",
+         lab = "Mass (g)")
+
+sub_pv2 <- bind_rows(sub_pv, pv_comb)
+
+sub_pv2 %>%
+  ggplot(aes(y = WP_m, 
+             x = VOD))+
+  geom_point() +
+  facet_wrap(~lab, scales = "free_x") +
+  theme_bw(base_size = 12) +
+  scale_y_continuous(expression(paste(Psi["1:30 am"], " (MPa)")))
+
+
+
 
 #### Add on-site SWC to comparison ####
 # read in half-hourly
