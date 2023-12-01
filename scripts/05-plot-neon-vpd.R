@@ -63,7 +63,7 @@ swc_all <- read_csv("data_clean/neon_swc30.csv")
 env_all <- env_2023 %>%
   left_join(select(vpd30_tower, -siteID, -verticalPosition),
             by = join_by(dt == startDateTime)) %>%
-  left_join(swc_all, by = join_by(dt = startDateTime))
+  left_join(swc_all, by = join_by(dt == startDateTime))
 
 # Write out
 write_csv(env_all, "data_clean/neon_vpd30.csv")

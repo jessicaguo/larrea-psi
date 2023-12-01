@@ -18,14 +18,16 @@ if(!dir.exists("data_appended")) {
 ##### Download manual data from Google Drive #####
 
 manual <- read_sheet("https://docs.google.com/spreadsheets/d/1gVmWOpvJVHU81S7W8M3cM0stLKn6hsTKvb2_XSMpKMo/edit#gid=247691673",
-                     sheet = "Predawns") %>%
+                     sheet = "Predawns",
+                     range = "A1:F120") %>%
   mutate(dt = Date + lubridate::hm(Time)) %>%
   clean_names() 
 
 ggplot(manual, 
        aes(x = dt, y = predawn_m_pa, color = factor(shrub_id))) +
   geom_point() +
-  geom_line()
+  geom_line() +
+  facet_wrap(~shrub_id)
 
 write_csv(manual, "data_clean/pressure_chamber.csv")
 

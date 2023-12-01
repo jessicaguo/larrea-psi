@@ -467,8 +467,8 @@ sub_pv %>%
 # from late October 2023, full rehydrated curves on 5 samples
 # need to rerun with dried mass of leaves
 pv_comb <- read_csv("../larrea-pv/data_clean/pv_comb.csv") %>%
-  select(P.MPa, RWC) %>%
-  rename(VOD = RWC) %>%
+  select(P.MPa, rwc) %>%
+  rename(VOD = rwc) %>%
   mutate(WP_m = -P.MPa,
          index = "PV curve",
          lab = "Mass (g)")
@@ -476,14 +476,12 @@ pv_comb <- read_csv("../larrea-pv/data_clean/pv_comb.csv") %>%
 sub_pv2 <- bind_rows(sub_pv, pv_comb)
 
 sub_pv2 %>%
-  ggplot(aes(y = WP_m, 
-             x = VOD))+
+  ggplot(aes(y = -1/WP_m, 
+             x = 1-VOD))+
   geom_point() +
   facet_wrap(~lab, scales = "free_x") +
   theme_bw(base_size = 12) +
   scale_y_continuous(expression(paste(Psi["1:30 am"], " (MPa)")))
-
-
 
 
 #### Add on-site SWC to comparison ####
