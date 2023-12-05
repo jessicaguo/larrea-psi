@@ -1484,6 +1484,18 @@
       ],
       "Hash": "671a4d384ae9d32fc47a14e98bfa3dc8"
     },
+    "suncalc": {
+      "Package": "suncalc",
+      "Version": "0.5.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "data.table",
+        "lubridate",
+        "magrittr"
+      ],
+      "Hash": "d7f6002de83e84715b882458162207b6"
+    },
     "sys": {
       "Package": "sys",
       "Version": "3.4.1",
