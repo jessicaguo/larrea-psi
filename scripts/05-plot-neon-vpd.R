@@ -1,4 +1,4 @@
-# Explore site-level soil moisture
+# Explore site-level VPD, precip
 
 library(neonUtilities)
 options(stringsAsFactors = FALSE)
@@ -54,8 +54,8 @@ vpd30_tower %>%
 
 
 # Read in and join with swc data
-env_2023 <- data.frame(dt = seq(as.POSIXct("2023-01-01 00:00:00"),
-                                as.POSIXct("2023-08-01 23:30:00"),
+env_2023 <- data.frame(dt = seq(as.POSIXct("2023-01-01 00:00:00", tz = "America/Phoenix"),
+                                as.POSIXct("2023-10-31 23:30:00", tz = "America/Phoenix"),
                                 by = "30 mins"))
 swc_all <- read_csv("data_clean/neon_swc30.csv")
 
@@ -67,3 +67,55 @@ env_all <- env_2023 %>%
 
 # Write out
 write_csv(env_all, "data_clean/neon_vpd30.csv")
+
+##### Precipitation #####
+# Download and stack 2023 precipitation for SRER
+# Only run once, or update when new data is available
+zipsByProduct(dpID = "DP1.00006.001", 
+              site = c("SRER"),
+              startdate = "2023-01",
+              package = "basic", check.size = TRUE)
+stackByTable(filepath = "filesToStack00006/",
+             savepath = "data_neon",
+             saveUnzippedFiles = FALSE)
+unlink("filesToStack00006")
+
+# Load 30 minute data
+
+ppt30 <- read_csv("data_neon/stackedFiles/PRIPRE_30min.csv")
+unique(ppt30$siteID)
+table(ppt30$horizontalPosition, ppt30$verticalPosition)
+# tower ppt is at HOR 900 and VER 000
+
+# priPrecipFinalQF
+# 1 = FAIL
+# 0 = PASS
+
+# Use 30 minutely data, 
+# quality control for priPrecipBulk
+
+
+ppt30_out <- ppt30 %>%
+  filter(priPrecipFinalQF == 0) %>%
+  select(siteID, verticalPosition,
+         startDateTime, priPrecipBulk)
+
+ppt30_out %>%
+  ggplot(aes(x = startDateTime, y = priPrecipBulk)) +
+  geom_point()
+
+
+# Read in and join with swc data
+env_2023 <- data.frame(dt = seq(as.POSIXct("2023-01-01 00:00:00", tz = "America/Phoenix"),
+                                as.POSIXct("2023-10-31 23:30:00", tz = "America/Phoenix"),
+                                by = "30 mins"))
+swc_vpd <- read_csv("data_clean/neon_vpd30.csv")
+
+
+env_all <- env_2023 %>%
+  left_join(select(ppt30_out, -siteID, -verticalPosition),
+            by = join_by(dt == startDateTime)) %>%
+  left_join(swc_vpd, by = join_by(dt == dt))
+
+# Write out
+write_csv(env_all, "data_clean/neon_vpd_ppt30.csv")
