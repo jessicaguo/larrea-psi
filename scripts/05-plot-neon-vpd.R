@@ -119,3 +119,24 @@ env_all <- env_2023 %>%
 
 # Write out
 write_csv(env_all, "data_clean/neon_vpd_ppt30.csv")
+
+#### Pull out atm vars and summarize to daily #### 
+
+env_30 <- read_csv("data_clean/neon_vpd_ppt30.csv",
+                   locale = locale(tz = "America/Phoenix"))
+atm <- env_30 |> 
+  select(dt, priPrecipBulk, tempRHMean, VPD) |> 
+  mutate(date = as.Date(dt, tz = "America/Phoenix")) |> 
+  mutate_if(is.numeric, function(x) ifelse(is.infinite(x), NA, x)) |> 
+  group_by(date) |> 
+  summarize(ppt_mm = sum(priPrecipBulk, na.rm = TRUE),
+            Tmax = max(tempRHMean, na.rm = TRUE),
+            Tmean = mean(tempRHMean, na.rm = TRUE),
+            Dmax = max(VPD, na.rm = TRUE),
+            Dmean = mean(VPD, na.rm = TRUE),
+            ppt_n = sum(!is.na(priPrecipBulk)),
+            T_n = sum(!is.na(tempRHMean)),
+            D_n = sum(!is.na(VPD))) |> 
+  mutate_if(is.numeric, function(x) ifelse(is.infinite(x), NA, x))
+
+write_csv(atm, file = "data_clean/neon_atmdaily.csv")
