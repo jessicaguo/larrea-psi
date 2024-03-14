@@ -9,6 +9,7 @@ data_raw/
 data_clean/
 data_neon/
 data_vod/
+data_ameriflux/
 
 # Figures
 figs/
