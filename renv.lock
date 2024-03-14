@@ -699,6 +699,18 @@
       ],
       "Hash": "b44addadb528a0d227794121c00572a0"
     },
+    "harrypotter": {
+      "Package": "harrypotter",
+      "Version": "2.1.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "ggplot2",
+        "gridExtra"
+      ],
+      "Hash": "5672ac02f15a6d6462b8d60d0cc63fc8"
+    },
     "haven": {
       "Package": "haven",
       "Version": "2.5.2",
