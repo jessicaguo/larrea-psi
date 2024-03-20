@@ -15,6 +15,7 @@ if(!dir.exists("data_neon")) {
 zipsByProduct(dpID = "DP1.00098.001", 
               site = c("SRER"),
               startdate = "2023-01",
+              enddate = "2023-12",
               package = "basic", check.size = TRUE)
 stackByTable(filepath = "filesToStack00098/",
              savepath = "data_neon",
