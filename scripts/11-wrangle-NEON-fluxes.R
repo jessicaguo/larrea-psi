@@ -51,11 +51,30 @@ unlink("filesToStack00024")
 par30 <- read_csv("data_neon/stackedFiles/PARPAR_30min.csv") |>
   filter(verticalPosition == "040")
 
+# Download and stack shortwave radition
+# Only run once, or update when new data is available
+zipsByProduct(dpID = "DP1.00023.001",
+              site = c("SRER"),
+              startdate = "2023-01",
+              enddate = "2023-12",
+              package = "basic", check.size = TRUE)
+stackByTable(filepath = "filesToStack00023/",
+             savepath = "data_neon",
+             saveUnzippedFiles = FALSE)
+unlink("filesToStack00023")
+
+rad30 <- read_csv("data_neon/stackedFiles/SLRNR_30min.csv") |>
+  filter(verticalPosition == "040")
+
+rad30 |>
+  ggplot(aes(x = startDateTime, y = inSWMean)) +
+  geom_point()
 
 # Join fluxes with SRER RH and PAR
 out <- flux$SRER |>
   left_join(rh30, by = join_by("timeBgn" == "startDateTime")) |>
   left_join(par30, by = join_by("timeBgn" == "startDateTime")) |>
+  left_join(rad30, by = join_by("timeBgn" == "startDateTime")) |>
   mutate(timeBgn = with_tz(timeBgn, tzone = "America/Phoenix"),
          timeEnd = with_tz(timeEnd, tzone = "America/Phoenix"))
 
