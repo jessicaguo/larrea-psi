@@ -11,5 +11,8 @@ data_neon/
 data_vod/
 data_ameriflux/
 
+# EC bundle from NEON
+filesToStack00200
+
 # Figures
 figs/
