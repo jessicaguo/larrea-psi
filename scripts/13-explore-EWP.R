@@ -2,6 +2,7 @@
 library(tidyverse)
 library(ggh4x)
 library(cowplot)
+library(segmented)
 
 # Load daily met vars
 vpd <- read_csv("data_clean/neon_atmdaily.csv")
@@ -95,6 +96,113 @@ figa <- et_drydown2 |>
         legend.position = c(0.75, 0.85),
         ggh4x.axis.ticks.length.minor = rel(1))
 
+
+##### Recalculating for spring and monsoon drydowns #####
+
+# Have to deal with precip and also increases in WP
+# Develop algorithm to pick out sustained declines and remove bumps?
+# Will also remove ET bumps from cumulative ET
+
+# Divide into 2 time periods
+p2 <- data.frame(st = as.Date(c("2023-03-23", "2023-08-24")),
+                 en = as.Date(c("2023-07-10", "2023-10-16")),
+                 drydown = factor(c("spring", "monsoon"),
+                                  levels = c("spring", "monsoon")))
+
+# Join and add cummin for PD as criteria for summing ET
+et_test <- et_daily |>
+  left_join(p2, by = join_by(between(date, st, en))) |>
+  dplyr::select(-st, -en) |>
+  filter(!is.na(drydown)) |>
+  group_by(drydown) |>
+  mutate(PD_min = cummin(PD)) |>
+  ungroup() |>
+  mutate(et_to_add = if_else(PD > PD_min, 0, et_mm_day)) |>
+  group_by(drydown) |>
+  mutate(et_cum = cumsum(et_to_add))
+
+#  Plot timeseries with ET and PD
+
+et_test |>
+  ggplot() +
+  geom_point(aes(x = date, y = et_cum)) +
+  geom_col(aes(x = date, y = ppt_mm)) +
+  geom_point(aes(x = date, y = PD*5 + 25)) +
+  scale_y_continuous("cum ET",
+                     sec.axis = sec_axis(~(.-25)/5)) +
+  facet_wrap(~drydown, scale = "free_x")
+
+
+# Try breakpoint model
+
+# spring
+et_spring <- et_test |>
+  filter(drydown == "spring") |>
+  mutate(y = -1/PD_min)
+
+m1 <- lm(y ~ et_cum, data = et_spring)
+seg1 <- segmented(m1,
+                  seg.Z = ~et_cum,
+                  psi = list(et_cum = c(8)))
+summary(seg1)
+
+seg1$psi
+
+slope(seg1)
+intercept(seg1)
+
+pred <- data.frame(et_cum = et_spring$et_cum, y = fitted(seg1))
+plot(pred$et_cum, pred$y)
+
+# monsoon
+et_monsoon <- et_test |>
+  filter(drydown == "monsoon") |>
+  mutate(y = -1/PD_min)
+
+m2 <- lm(y ~ et_cum, data = et_monsoon)
+seg2 <- segmented(m2,
+                  seg.Z = ~et_cum,
+                  psi = list(et_cum = c(8)))
+summary(seg2)
+
+seg2$psi
+slope(seg2)
+
+pred2 <- data.frame(et_cum = et_monsoon$et_cum, y = fitted(seg2))
+plot(pred2$et_cum, pred2$y)
+
+seg_df <- data.frame(drydown = rep(c("spring", "monsoon"), each = 2),
+                     slopes = c(slope(seg1)$et_cum[,1], slope(seg2)$et_cum[,1]),
+                     ints = c(intercept(seg1)$et_cum[,1], intercept(seg2)$et_cum[,1]),
+                     psi = rep(c(seg1$psi[2], seg2$psi[2]), each = 2)) |>
+  mutate(hline = slopes*psi + ints)
+
+# Plot as PV curve with PD_min and et_cum
+# Add manually-derived TLP
+# And segmented regression
+et_test |>
+  ggplot() +
+  geom_abline(data = seg_df,
+              aes(slope = slopes, intercept = ints),
+              linetype = "dotted") +
+  geom_hline(data = seg_df,
+             aes(yintercept = hline),
+             lty = "dashed",
+             col = "forestgreen") +
+  geom_hline(yintercept = 1/3.05,
+             lty = "dashed") +
+  geom_point(aes(x = et_cum,  y = -1/PD_min),
+             alpha = 0.2) +
+  scale_x_continuous(expression(paste("Cumulative ET (mm)"))) +
+  scale_y_continuous(expression(paste("1/|", Psi[PD], "| (-MPa)")),
+                     guide = "axis_minor") +
+  scale_color_brewer(palette = "Accent") +
+  facet_wrap(~drydown, scale = "free_x") +
+  theme_bw(base_size = 14) +
+  theme(panel.grid = element_blank(),
+        legend.title = element_blank(),
+        legend.position = c(0.75, 0.85),
+        ggh4x.axis.ticks.length.minor = rel(1))
 
 ##### Add PV curves ####
 
