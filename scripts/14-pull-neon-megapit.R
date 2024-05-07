@@ -29,6 +29,12 @@ if(!dir.exists("data_neon")) {
 # mgp_perhorizon
 horizon <- read_csv("data_neon/stackedFiles/mgp_perhorizon.csv")
 
+# Texture + chemical properties in
+# mgp_perbiogeosample
+texture <- read_csv("data_neon/stackedFiles/mgp_perbiogeosample.csv") |>
+  select(horizonID, horizonName, coarseFrag2To5:clayTotal)
+
+
 # Bulk density
 # mgp_perbulksample
 # provides medium, top, and bottom bulk density
@@ -39,6 +45,7 @@ bd <- read_csv("data_neon/stackedFiles/mgp_perbulksample.csv") |>
   left_join(horizon,
             by = join_by(domainID, siteID, pitNamedLocation, pitID,
                          horizonID, horizonName)) |>
+  left_join(texture, by = join_by(horizonID, horizonName)) |>
   arrange(horizonTopDepth) |>
   mutate(depthID = 1:5) |>
   select(-remarks.x:-collectDate.y, -remarks.y:-release.y)
@@ -47,5 +54,3 @@ bd$bulkDensExclCoarseFrag
 
 write_csv(bd, file = "data_neon/megapit_bulkdens.csv")
 
-# Texture + chemical properties in
-# mgp_perbiogeosample
