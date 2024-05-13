@@ -1,0 +1,42 @@
+# Non-hierarchical
+# By texture
+model{
+  for(i in 1:N) {
+    # Likelihood
+    log.y[i] ~ dnorm(mu[i], tau)
+    # Replicated data for predictive sampling
+    log.y.rep[i] ~ dnorm(mu[i], tau)
+    # Residuals
+    resid[i] <- mu[i] - log.y[i]
+    # Squared differences
+    sqdiff[i] <- pow(log.y[i] - log.y.rep[i], 2)
+    
+    # Regression mode
+    mu[i] <- -1*inv.b[texture[i]] * (log.x[i] - log.a[texture[i]])
+    
+  }
+  
+  # Hierarchical priors for parameters 
+  for(j in 1:2) { # 2 textures
+    inv.b[j] ~ dnorm(0, 0.001)
+    log.a[j] ~ dnorm(0, 0.001)
+    
+    # True parameters to monitor
+    b[j] <- pow(inv.b[j], -1)
+    a[j] <- exp(log.a[j])
+
+  }
+
+  # Prior for observation variance
+  tau ~ dgamma(0.01, 0.01)
+  sig <- pow(tau, -0.5)
+  
+  # Posterior predictive loss
+  Dsum <- sum(sqdiff[])
+  # Bayesian R2
+  # Compute Bayesian R2 value
+  var.pred <- pow(sd(mu[]),2)
+  var.resid <- 1/tau
+  R2 <- var.pred/(var.pred + var.resid)
+  
+}
