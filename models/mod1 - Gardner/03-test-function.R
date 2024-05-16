@@ -26,10 +26,16 @@ preds <- mrc |>
 preds %>%
   ggplot(aes(x = vwc)) +
   geom_point(aes(y = wp,
-                 col = "actual")) +
-  geom_point(aes(y = swp_texture,
-                 col = "by texture")) +
-  theme_bw(base_size = 14)
+                 col = "empirical")) +
+  geom_line(aes(y = swp_texture,
+                lty = texture,
+                 col = "modeled")) +
+  scale_y_continuous(expression(paste(Psi[soil], " (MPa)"))) +
+  scale_x_continuous(expression(paste(Theta, " (", cm^3, " ", cm^-3, ")"))) +
+  theme_bw(base_size = 14) +
+  theme(panel.grid = element_blank(),
+        legend.title = element_blank(),
+        legend.position = c(0.75, 0.3))
 
 
 
