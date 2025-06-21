@@ -58,6 +58,8 @@ psy <- read_csv("data_clean/psy/psy_daily_site.csv") |>
 
 write_csv(psy, file = "data_clean/psy/psy_daily_site_swp.csv")
 
+# Read in data 
+psy <- read_csv("data_clean/psy/psy_daily_site_swp.csv")
 
 psy |>
   ggplot(aes(x = date)) +
@@ -86,5 +88,16 @@ psy |>
         axis.title.y.left = element_text(color = "tan"),
         axis.title.y.right = element_text(color = "seagreen")) +
   guides(color = "none")
-  
 
+# Zoom in on a pulse
+temp <- psy |>
+  filter(date >= as.Date("2023-08-21"),
+         date < as.Date("2023-09-12"))
+
+temp2 <- psy |>
+  filter(date >= as.Date("2023-09-21"))
+
+temp |>
+  ggplot(aes(x = date)) +
+  geom_point(aes(y = PD)) +
+  geom_point(aes(y = swp, color = depths))
