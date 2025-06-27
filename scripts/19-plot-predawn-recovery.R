@@ -52,3 +52,8 @@ ggsave(filename = "figs/predawn_recovery_apr_june.png",
        height = 7,
        width = 6,
        units = "in")
+
+temp <- psy |> 
+  filter(month %in% 4:6)
+
+write_csv(temp, "data_clean/psy/SRER_LATR_pdd_Apr_June.csv")
