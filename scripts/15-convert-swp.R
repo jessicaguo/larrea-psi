@@ -81,11 +81,13 @@ vwc |>
 
 
 # Add predicted swp by texture
-# Sandy loam for 6, 16, and 26
+# Sandy loam for 6_gap, 16_gap, and 26
 
 swp_vwc <- vwc |>
-  select(date, starts_with("m_p34")) |>
-  # m_p34_6, m_p34_16, m_p34_26) |>
+  # Use gapfilled where possible
+  select(date, m_p34_6_gap, m_p34_16_gap, m_p34_26) |>
+  # For ease of pivoting, rename without "_gap" |> 
+  rename(m_p34_6 = m_p34_6_gap, m_p34_16 = m_p34_16_gap) |> 
   pivot_longer(-date, 
                names_to = c("plot", "depth"),
                names_pattern = "m_p(.*)_(.*)",
@@ -118,7 +120,7 @@ swp_vwc |>
   scale_color_manual(values = c("seagreen", "tan")) +
   theme_bw(base_size = 14) +
   theme(panel.grid = element_blank(),
-        axis.title.x = element_blank()
+        axis.title.x = element_blank(),
         axis.title.y.left = element_text(color = "seagreen"),
         axis.title.y.right = element_text(color = "tan")) +
   guides(color = "none")
