@@ -28,7 +28,8 @@ unlink("filesToStack00094")
 
 # Load 30 minute data
 
-swc30 <- read_csv("data_neon/stackedFiles/SWS_30_minute.csv")
+swc30 <- read_csv("data_neon/stackedFiles/SWS_30_minute.csv") |> 
+  mutate(dt = with_tz(startDateTime, "America/Phoenix"))
 unique(swc30$siteID)
 table(swc30$horizontalPosition, swc30$verticalPosition)
 
@@ -102,7 +103,7 @@ swc_12 <- swc30 %>%
                            verticalPosition == 503 ~ 26,
                            verticalPosition == 504 ~ 56)) %>%
   group_by(depth,
-           startDateTime) %>%
+           dt) %>%
   summarize(swc_mean = mean(VSWCMean),
             swc_n = n()) %>%
   filter(swc_n > 1) %>%
@@ -119,7 +120,7 @@ swc_34 <- swc30 %>%
                            verticalPosition == 502 ~ 16,
                            verticalPosition == 503 ~ 26)) %>%
   group_by(depth,
-           startDateTime) %>%
+           dt) %>%
   summarize(swc_mean = mean(VSWCMean),
             swc_n = n()) %>%
   filter(swc_n > 1) %>%
@@ -130,16 +131,16 @@ swc_34 <- swc30 %>%
 # Check plots
 swc_12 %>%  
   ggplot() +
-  geom_point(aes(x = startDateTime,
+  geom_point(aes(x = dt,
                  y = p12_6,
                  color = "06 cm")) +
-  geom_point(aes(x = startDateTime,
+  geom_point(aes(x = dt,
                  y = p12_16, 
                  color = "16 cm")) +
-  geom_point(aes(x = startDateTime,
+  geom_point(aes(x = dt,
                  y = p12_26, 
                  color = "26 cm")) +
-  geom_point(aes(x = startDateTime,
+  geom_point(aes(x = dt,
                  y = p12_56, 
                  color = "56 cm"))
 
@@ -147,27 +148,28 @@ swc_12 %>%
   
 swc_34 %>%  
   ggplot() +
-  geom_point(aes(x = startDateTime,
+  geom_point(aes(x = dt,
                  y = p34_6,
                  color = "06 cm")) +
-  geom_point(aes(x = startDateTime,
+  geom_point(aes(x = dt,
                  y = p34_16, 
                  color = "16 cm")) +
-  geom_point(aes(x = startDateTime,
+  geom_point(aes(x = dt,
                  y = p34_26, 
                  color = "26 cm")) 
 
 
 # combine and output
-swc_all <- full_join(select(swc_12, -swc_n), select(swc_34, -swc_n), by = join_by(startDateTime))
+swc_all <- full_join(select(swc_12, -swc_n), select(swc_34, -swc_n), 
+                     by = join_by(dt))
 
 # Check for gaps in the average of 3 and 4
 ggplot(swc_all) +
-  geom_point(aes(x = startDateTime, y = p34_6,
+  geom_point(aes(x = dt, y = p34_6,
                  color = "6 cm")) +
-  geom_point(aes(x = startDateTime, y = p34_16,
+  geom_point(aes(x = dt, y = p34_16,
                  color = "16 cm"))+
-  geom_point(aes(x = startDateTime, y = p34_26,
+  geom_point(aes(x = dt, y = p34_26,
                  color = "26 cm"))
 
 # Total number of NAs
@@ -184,25 +186,31 @@ sum(is.na(swc_all$p34_26))# 9979
 # 1_5 = 50 cm
 srm_soil <- read_csv("data_ameriflux/US-SRM_HH_202212312330_202312312330.csv",
                      na = "-9999") |> 
-  # Also reported in UTC
+  # Also reported in UTCm, but from TA_1_2_1, it is actually in local time
   mutate(dt = as.POSIXct(paste(TIMESTAMP_START),
-                         format = "%Y%m%d%H%M")) |> 
+                         format = "%Y%m%d%H%M",
+                         tz = "UTC") |> 
+           force_tz("America/Phoenix")) |> 
   relocate(dt) |> 
   select(dt, starts_with("SWC_")) |> 
   mutate(srm_05 = SWC_1_1_A/100,
          srm_10 = SWC_1_2_A/100,
          srm_20 = SWC_1_3_A/100,
          srm_30 = SWC_1_4_A/100,
-         srm_50 = SWC_1_5_A/100)
+         srm_50 = SWC_1_5_A/100) |> 
+  # remove first row
+  slice(-1)
+
+attr(swc_all$dt, "tzone")
+attr(srm_soil$dt, "tzone")
 
 # Missing data in SRM too, but mostly in March
-sum(is.na(srm_soil$SWC_1_1_A))
+sum(is.na(srm_soil$srm_05))
 
-
+# Both datasets have dt in local time!
 both <- left_join(swc_all,
-                  select(srm_soil, dt, starts_with("srm")),
-                  join_by(startDateTime == dt)) |> 
-  rename(dt = startDateTime) |> 
+                   select(srm_soil, dt, starts_with("srm")),
+                   join_by(dt)) |> 
   arrange(dt)
 
 
@@ -221,6 +229,7 @@ na_rects_6 <- both |>
     ymax = Inf,
     dur = difftime(xmax, xmin, units = "days")
   )
+
 # Most gaps are short, only 11 are longer than 12 hours (0.5 day)
 sum(length(which(na_rects_6$dur > 0.5)))
 
@@ -231,7 +240,7 @@ gaps_to_fill_6 <- na_rects_6 |>
          slope = NA_real_,
          int = NA_real_)
 
-# For each gap, plot relationship (check linearity) with 2 days on each side
+# For each gap, plot relationship (check linearity) with 4 days on each side
 for(i in 1:nrow(gaps_to_fill_6)) {
   st <- gaps_to_fill_6$xmin[i]
   en <- gaps_to_fill_6$xmax[i]
@@ -258,14 +267,16 @@ for(i in 1:nrow(gaps_to_fill_6)) {
                    y = p34_6))
   
   # Simple linear regression
-  m1 <- lm(p34_6 ~ srm_10, data = clipped)
-  
-  # Record parameters
-  gaps_to_fill_6$R2[i] <- summary(m1)$adj.r.squared
-  f <- summary(m1)$fstatistic
-  gaps_to_fill_6$p[i] <-  pf(f[1], f[2], f[3], lower.tail = FALSE)
-  gaps_to_fill_6$slope[i] <- coef(summary(m1))[2,1]
-  gaps_to_fill_6$int[i] <- coef(summary(m1))[1,1]
+  if(all(is.na(clipped$srm_10)) == FALSE) {
+    m1 <- lm(p34_6 ~ srm_10, data = clipped)
+    
+    # Record parameters
+    gaps_to_fill_6$R2[i] <- summary(m1)$adj.r.squared
+    f <- summary(m1)$fstatistic
+    gaps_to_fill_6$p[i] <-  pf(f[1], f[2], f[3], lower.tail = FALSE)
+    gaps_to_fill_6$slope[i] <- coef(summary(m1))[2,1]
+    gaps_to_fill_6$int[i] <- coef(summary(m1))[1,1]
+  }
   
 }
 
@@ -311,7 +322,7 @@ na_rects_16 <- both |>
     ymax = Inf,
     dur = difftime(xmax, xmin, units = "days")
   )
-# Most gaps are short, only 5 are longer than 15 hours (0.625 day)
+# Most gaps are short, only 5 are longer than 12 hours (0.625 day)
 sum(length(which(na_rects_16$dur > 0.625)))
 
 gaps_to_fill_16 <- na_rects_16 |> 
@@ -321,7 +332,7 @@ gaps_to_fill_16 <- na_rects_16 |>
          slope = NA_real_,
          int = NA_real_)
 
-# For each gap, plot relationship (check linearity) with 2 days on each side
+# For each gap, plot relationship (check linearity) with 4 days on each side
 for(i in 1:nrow(gaps_to_fill_16)) {
   st <- gaps_to_fill_16$xmin[i]
   en <- gaps_to_fill_16$xmax[i]
@@ -348,14 +359,16 @@ for(i in 1:nrow(gaps_to_fill_16)) {
                    y = p34_16))
   
   # Simple linear regression
-  m1 <- lm(p34_16 ~ srm_20, data = clipped)
-  
-  # Record parameters
-  gaps_to_fill_16$R2[i] <- summary(m1)$adj.r.squared
-  f <- summary(m1)$fstatistic
-  gaps_to_fill_16$p[i] <-  pf(f[1], f[2], f[3], lower.tail = FALSE)
-  gaps_to_fill_16$slope[i] <- coef(summary(m1))[2,1]
-  gaps_to_fill_16$int[i] <- coef(summary(m1))[1,1]
+  if(all(is.na(clipped$srm_20)) == FALSE) {
+    m1 <- lm(p34_16 ~ srm_20, data = clipped)
+    
+    # Record parameters
+    gaps_to_fill_16$R2[i] <- summary(m1)$adj.r.squared
+    f <- summary(m1)$fstatistic
+    gaps_to_fill_16$p[i] <-  pf(f[1], f[2], f[3], lower.tail = FALSE)
+    gaps_to_fill_16$slope[i] <- coef(summary(m1))[2,1]
+    gaps_to_fill_16$int[i] <- coef(summary(m1))[1,1]
+  }
 }
 
 # Fill in the gap
@@ -391,39 +404,17 @@ temp_16 |>
 both$p34_6_gap <- temp_6$p34_6_gap
 both$p34_16_gap <- temp_16$p34_16_gap
 
-# No
-# Plot both as timeseries 
-ggplot(both) +
-  geom_rect(data = na_rects, aes(xmin = xmin, xmax = xmax, 
-                                 ymin = ymin, ymax = ymax), 
-            fill = "red", alpha = 0.2, inherit.aes = FALSE) +
-  geom_point(aes(x = dt, y = srm_05,
-                 color = "05 cm")) +
-  geom_point(aes(x = dt, y = srm_10,
-                 color = "10 cm")) +
-  geom_point(aes(x = dt, y = p34_6,
-                 color = "16cm"))
-
-# check linearity of relationships
-ggplot(both) +
-  geom_point(aes(x = srm_10,
-                 y = p34_6,
-                 color = startDateTime))
-
-
 
 write_csv(both, "data_clean/neon_swc30.csv")
 # Written out as the original tz of UTC
 
 # Average to daily values
 
-swc30 <- read_csv("data_clean/neon_swc30.csv") |> 
-  # Read in as UTC, then convert to local
-    mutate(dt = lubridate::with_tz(dt, tzone = "America/Phoenix")) |> 
-  # Add date in America/Phoenix
+swc30 <- read_csv("data_clean/neon_swc30.csv",
+                  locale = locale(tz = "America/Phoenix")) |> 
   mutate(date = as.Date(dt, tz = "America/Phoenix"))
 
-# attr(swc30$startDateTime, "tzone")
+attr(swc30$dt, "tzone")
 
 
 # Summarize to daily means, sd, and n
@@ -443,9 +434,11 @@ swc_daily <- swc30 |>
 
 sum(is.na(swc_daily$m_p34_6_gap))
 sum(is.na(swc_daily$m_p34_16_gap))
+sum(is.na(swc_daily$m_p34_26))
 min(swc_daily$n_p34_6_gap)
 min(swc_daily$n_p34_16_gap)
-
+min(swc_daily$n_p34_26)
 # Some daily means with very little data, but we need unbroken records
+# only one day is missing for 26, 2023-11-17 which is after psy timeseries ends
 
 write_csv(swc_daily, "data_clean/neon_swcdaily.csv")

@@ -9,7 +9,8 @@ source("source/vwc2swp.R")
 # Read in moisture release data
 mrc <- read_csv("models/mod1 - Gardner/moisture-release.csv")
 # Read in vwc field data
-vwc <- read_csv("data_clean/neon_swcdaily.csv")
+vwc <- read_csv("data_clean/neon_swcdaily.csv",
+                locale = locale(tz = "America/Phoenix"))
 # Read in psy_daily_site
 psy_site <- read_csv("data_clean/psy/psy_daily_site.csv")
 
@@ -87,7 +88,8 @@ swp_vwc <- vwc |>
   # Use gapfilled where possible
   select(date, m_p34_6_gap, m_p34_16_gap, m_p34_26) |>
   # For ease of pivoting, rename without "_gap" |> 
-  rename(m_p34_6 = m_p34_6_gap, m_p34_16 = m_p34_16_gap) |> 
+  rename(m_p34_6 = m_p34_6_gap, 
+         m_p34_16 = m_p34_16_gap) |> 
   pivot_longer(-date, 
                names_to = c("plot", "depth"),
                names_pattern = "m_p(.*)_(.*)",
@@ -99,9 +101,29 @@ swp_vwc <- vwc |>
                              depth == 26 ~ "sandy loam")) |>
   group_by(date, plot, depth, texture) |>
   mutate(vwc = unique(vwc),
-         swp = vwc2swp(vwc, param = texture, stat = "median"))
+         swp = vwc2swp(vwc, param = texture, stat = "median")) |> 
+  rename(swc = vwc)
 
-write_csv(swp_vwc, file = "data_clean/neon_vwc_swp_long.csv")
+# check for gaps
+swp_vwc |> 
+  filter(depth == 6) |> 
+  pull(swp) |> 
+  is.na() |> 
+  sum()
+
+swp_vwc |> 
+  filter(depth == 16) |> 
+  pull(swp) |> 
+  is.na() |> 
+  sum()
+
+swp_vwc |> 
+  filter(depth == 26) |> 
+  pull(swp) |> 
+  is.na() |> 
+  sum()
+
+write_csv(swp_vwc, file = "data_clean/neon_swc_swp_long_daily.csv")
 
 # Plot double axis by depth
 
@@ -109,7 +131,7 @@ swp_vwc |>
   ggplot(aes(x = date)) +
   geom_point(aes(y = swp, 
                  col = "SWP")) +
-  geom_point(aes(y = vwc*20-3,
+  geom_point(aes(y = swc*20-3,
                  col = "VWC")) +
   scale_y_continuous(expression(paste(Psi[soil], " (MPa)")),
                      sec.axis = sec_axis(~(.+3)/20,
